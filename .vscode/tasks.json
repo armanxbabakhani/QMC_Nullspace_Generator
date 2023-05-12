@@ -1,0 +1,30 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cppbuild",
+			"label": "C/C++: g++-12 build active file",
+			"command": "/usr/local/bin/g++-12",
+			"args": [
+				"-fdiagnostics-color=always",
+				"-g",
+				"${file}",
+				"-o",
+				"${fileDirname}/${fileBasenameNoExtension}",
+				"-I",
+				"/usr/local/Cellar/boost/1.81.0_1/include",    // Replace with the actual path to Boost include directory
+				"-L",
+				"/usr/local/Cellar/boost/1.81.0_1/lib",
+				"-lboost_system"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build",
+			"detail": "compiler: /usr/local/bin/g++-12"
+		}
+	]
+}
