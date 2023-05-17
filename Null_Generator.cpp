@@ -467,9 +467,20 @@ int main(int argc , char* argv[]){
         output << "const int D0_size = " << Z_track[0].size() << ";" << endl;
         output << "double D0_coeff[D0_size] = {";
         for(int i=0;i<Z_track[0].size();i++){
-            output << coefficients[Z_track[0][i]].real();
-            if(i< Z_track[0].size() -1 ){
-                output << ", ";
+            complex<double> c_ij = coefficients[Z_track[0][i]];
+            if(abs(c_ij.imag()) > 1e-7 ){
+                if(c_ij.imag() < 0){
+                output << c_ij.real() << c_ij.imag() << "i";
+                }
+                else{
+                    output << c_ij.real() << "+" << c_ij.imag() << "i";
+                }
+            }
+            else{
+                output << c_ij.real();
+            }
+            if(i < Z_track[0].size() - 1){
+                output << ", "; 
             }
         }
         output << "};" << endl;
@@ -481,7 +492,7 @@ int main(int argc , char* argv[]){
                 output << ", ";
             }
         }
-        output << ";" << endl;
+        output << "};" << endl;
         output << endl;
 
         // ------------------------------------------------------------------------ //
@@ -516,11 +527,16 @@ int main(int argc , char* argv[]){
             output << "{";
             for(int j = 0; j < Z_track[i].size(); j++){
                 complex<double> c_ij = coefficients[Z_track[i][j]];
-                if(c_ij.imag() < 0){
-                    output << c_ij.real() << c_ij.imag();
+                if(abs(c_ij.imag()) > 1e-7 ){
+                    if(c_ij.imag() < 0){
+                        output << c_ij.real() << c_ij.imag() << "i";
+                    }
+                    else{
+                        output << c_ij.real() << "+" << c_ij.imag() <<"i";
+                    }
                 }
                 else{
-                    output << c_ij.real() << "+" << c_ij.imag();
+                    output << c_ij.real();
                 }
                 if(j < Z_track[i].size() - 1){
                     output << ", "; 

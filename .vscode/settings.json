@@ -5,6 +5,7 @@
         "iosfwd": "cpp",
         "iterator": "cpp",
         "bitset": "cpp",
-        "ostream": "cpp"
+        "ostream": "cpp",
+        "complex": "cpp"
     }
 }
