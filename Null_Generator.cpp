@@ -177,7 +177,7 @@ void eig_minimize(vector<vector<int>>& null_eigs){
                 null_eigs_min_ind.push_back(null_eigs_high_ind[k]);
                 std::sort(null_eigs_min_ind.begin() , null_eigs_min_ind.end());
 
-                null_eigs_high_ind.erase(null_eigs_high_ind.begin() + k);
+                //null_eigs_high_ind.erase(null_eigs_high_ind.begin() + k);
                 break;
             }
             else if(low_k < null_k){
@@ -413,9 +413,9 @@ int main(int argc , char* argv[]){
         Ps_binary_unpad.push_back(bin_i_unpad);
     }
 
-    // Minimizing the size of the fundamental cycles
+    // Minimizing the size of the fundamental cycless
     vector<vector<int>> nullspace = Null2(Ps_binary);
-    //eig_minimize(nullspace); 
+    eig_minimize(nullspace); 
     cout << "Calculations done!" << endl;
     cout << "Making the output files ... " << endl;
 
