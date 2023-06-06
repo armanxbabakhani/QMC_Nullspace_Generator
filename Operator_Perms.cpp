@@ -407,25 +407,27 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
 
 //using namespace boost;
 int main(int argc , char* argv[]){
-    string fileName(argv[1]);  // Reading the name of the input .txt file describing the Hamiltonian
-    vector<pair<complex<double>, vector<int>>> data = data_extract(fileName);
+    string Ham_fileName(argv[1]);  // Reading the name of the input .txt file describing the Hamiltonian
+    vector<pair<complex<double>, vector<int>>> Ham_data = data_extract(Ham_fileName);
 
-    // Unpacking the data from the input file "fileName"
-    PZdata PZ_data = PZcomp(data);
-    vector<bitset<64>> Ps_bit = PZ_data.Ps;
-    vector<vector<bool>> Ps = downsize_bitset(Ps_bit);
-    vector<complex<double>> coefficients = PZ_data.coeffs;
-    vector<vector<int>> Z_track = PZ_data.Z_track;
-    vector<vector<int>> Zs = PZ_data.Zs;
-    vector<string> Zs_string;
-    //int no_qubit = PZ_data.no_qubit;
+    string Op_fileName(argv[2]);  // Reading the name of the input .txt file describing the Hamiltonian
+    vector<pair<complex<double>, vector<int>>> Op_data = data_extract(Op_fileName);
+
+    // Unpacking the data from the input file "fileNames"
+    PZdata PZ_data_Ham = PZcomp(Ham_data);
+    vector<bitset<64>> Ps_bit_Ham = PZ_data_Ham.Ps;
+    vector<vector<bool>> Ps_Ham = downsize_bitset(Ps_bit_Ham);
+    vector<complex<double>> coefficients_Ham = PZ_data_Ham.coeffs;
+    vector<vector<int>> Z_track_Ham = PZ_data_Ham.Z_track;
+    vector<vector<int>> Zs_Ham = PZ_data_Ham.Zs;
+    vector<string> Zs_string_Ham;
 
     // Converting the Z indices into string of bitsets!
     for(int i = 0; i < Zs.size();i++){
         Zs_string.push_back(int_to_str(Zs[i]));
     }
 
-    // Convert Ps indices into vector of ints
+    // Convert Ps indices into vector of bools
     vector<vector<bool>> Ps_nontrivial = Ps;
     if(Ps_bit[0].to_ullong() < 1e-6){
         Ps_nontrivial.erase(Ps_nontrivial.begin());

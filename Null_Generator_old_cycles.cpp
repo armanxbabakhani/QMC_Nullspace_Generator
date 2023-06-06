@@ -3,19 +3,26 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <boost/multiprecision/cpp_int.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
+#include <boost/numeric/ublas/io.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/regex.hpp>
 #include <complex>
 #include <algorithm>
 #include <numeric>
 #include <cmath>
 #include <bitset>
+//#include "Null_Generator.h"
 
 using namespace std;
-
-int no_qubit = 0; // number of qubits is a global variable!
+using namespace boost;
+using boost::multiprecision::cpp_int;
 
 // *****************************    Functions ******************************************* //
-template<typename T>
-void printMatrix(const vector<vector<T>>& matrix) {
+
+void printMatrix(const vector<vector<int>>& matrix) {
     int m = matrix.size();
     int n = matrix[0].size();
 
@@ -25,6 +32,28 @@ void printMatrix(const vector<vector<T>>& matrix) {
         }
         cout << endl;
     }
+}
+
+pair<vector<int> , vector<int>> int_to_bin(cpp_int num , int no_qubits) {
+    vector<int> binaryVector , binaryVector_padded;
+    pair<vector<int> , vector<int>> binary_combo;
+    // The binary vectors are created from left to right. For example, the number 6 --> [1 1 0] , 14 --> [1 1 1 0]
+    while (num > 0) {
+        int remainder = static_cast<int> (num % 2);
+        binaryVector.push_back(remainder);
+        num /= 2;
+    }
+
+    int no_of_padding = no_qubits - binaryVector.size();
+    reverse(binaryVector.begin() , binaryVector.end());
+    binaryVector_padded = binaryVector;
+    // Padding zeros from the left
+    for(int i=0; i < no_of_padding; i++){
+        binaryVector_padded.insert(binaryVector_padded.begin() , 0);
+    }
+    binary_combo.first = binaryVector_padded;
+    binary_combo.second = binaryVector;
+    return binary_combo;
 }
 
 // This function is for binary addition (XOR)
@@ -79,7 +108,8 @@ vector<vector<int>> Null2(const vector<vector<int>>& matrix) {
     for(int i = 0 ; i < marked_rows.size() ; i++){
         marked_matrix.push_back(matrix_RE[marked_rows[i]]);
     }
-
+    // Go over the marked rows and find the nullspace!
+    // The rows that are unmarked will define the nullspace
     vector<vector<int>> nullspaceBasis;
     for(int i = 0; i < numRows; i++){
         auto iter = find(marked_rows.begin(), marked_rows.end(), i); 
@@ -107,6 +137,7 @@ vector<vector<int>> Null2(const vector<vector<int>>& matrix) {
     return nullspaceBasis;
 }
 
+// This function minimizes the size of the cycles (nullspace basis vectors with least 1s):
 int int_sum(vector<int> vec){
     int sum = 0;
     for(int i = 0; i < vec.size(); i++){
@@ -115,7 +146,6 @@ int int_sum(vector<int> vec){
     return sum;
 }
 
-// This function minimizes the size of the cycles (nullspace basis vectors with least 1s):
 void eig_minimize(vector<vector<int>>& null_eigs){
     int null_size = null_eigs.size();
     vector<int> null_n(null_size);
@@ -211,8 +241,12 @@ vector<pair<complex<double>, vector<int>>> data_extract(const string& fileName){
         string token;
         vector<int> integers;
         while (iss >> token){
-            int num = std::stoi(token);
-            integers.push_back(num);
+            try {
+                int num = boost::lexical_cast<int>(token);
+                integers.push_back(num);
+            } catch (const boost::bad_lexical_cast&) {
+                // Ignore non-integer tokens
+            }
         }
         linedata.second = integers;
 
@@ -222,78 +256,21 @@ vector<pair<complex<double>, vector<int>>> data_extract(const string& fileName){
     return data;
 }
 
-// Finding bitset in a vector of bitsets:
-// The max bitset will be 64 (the maximum number of qubits), and we will cut off accordingly
-// ..... when the number of qubits of the system is less than this number.
-pair<bool , int> bit_is_in_set(bitset<64> bitstring, vector<bitset<64>> bitsetVector) {
-    bool found = false;
-    int found_indx = 0, ind_count = 0;
-    pair<bool, int> output;
-    for (const auto& bitset : bitsetVector) {
-            if (bitset == bitstring) {
-                found = true;
-                found_indx = ind_count;
-                break;
-            }
-            ind_count++;
-        }
-    output.first = found;
-    output.second = found_indx;
-    return output;
-}
-
-// This function downsizes the vector of bitsets from bitset<64> to bitset<no_qubit> to avoid 
-// ..... having redundant zeros.
-vector<vector<bool>> downsize_bitset(vector<bitset<64>> bitsetVector){
-    extern int no_qubit;
-    vector<vector<bool>> bitset_down;
-    for(const auto& bitset : bitsetVector){
-        vector<bool> bitset_vector;
-        for(int i = 0; i < no_qubit; i++){
-            bitset_vector.push_back(bitset[i]);
-        }
-        reverse(bitset_vector.begin() , bitset_vector.end())
-;        bitset_down.push_back(bitset_vector);
-    }
-    return bitset_down;
-}
-
-vector<vector<int>> bit_to_intvec(vector<vector<bool>> bitsetVec){
-    extern int no_qubit;
-    vector<vector<int>> bit_int;
-    for(auto const& bitset : bitsetVec){
-        vector<int> bit_int_i;
-        for(int i=0; i < no_qubit; i++){
-            bit_int_i.push_back(bitset[i]);
-        }
-        reverse(bit_int_i.begin() , bit_int_i.end());
-        bit_int.push_back(bit_int_i);
-    }
-
-    return bit_int;
-}
-
 // ------------- Functions to compute the Zs and Ps and coefficients ----------
-struct BitsetComparator {
-    bool operator()(const std::bitset<64>& lhs, const std::bitset<64>& rhs) const {
-        return lhs.to_ulong() < rhs.to_ulong();
-    }
-}; // This struct is for bitset comparison (in order to sort the bitsets)
-
 typedef vector<complex<double>> Coeffs;
 typedef vector<vector<int>> ZVecs;
 struct PZdata {
-    vector<bitset<64>> Ps;
+    vector<cpp_int> Ps;
     Coeffs coeffs;
     ZVecs Zs;
     ZVecs Z_track;
+    int no_qubit;
 };
 
 PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
     PZdata PZ_data;
-    int l = data.size(),z_count = 0;
-    extern int no_qubit;
-    vector<bitset<64>> Ps;
+    int l = data.size(),z_count = 0, no_qubit = 0;
+    vector<cpp_int> Ps;
     Coeffs coeffs;
     ZVecs Zs;
     ZVecs Z_track; //This vector maps the Zs to Ps it is a many to one mapping!
@@ -302,7 +279,7 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
         complex<double> coeff_i = data[i].first;
         vector<int> zs_i; // For every line zs extracts the qubits on which a pauli Z acts! 
         vector<int> data_i = data[i].second; // Extracts the array of qubits and paulis for every line of input!
-        bitset<64> bit_num; // This variable keeps track of the index of the permutation matrix we get for each line of data!
+        cpp_int num("0"); // This variable keeps track of the index of the permutation matrix we get for each line of data!
 
         for (size_t j = 0; j < data_i.size() / 2; j++) {
             // Format of the input file: The 1st, 3rd, 5th, ... indicate the qubits
@@ -313,12 +290,11 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
             if (qubit > no_qubit)
                 no_qubit = qubit;
             if (pauli_j == 1) {
-                bit_num.set(qubit-1, true);
-                // Add a 1 in the num-th position from the right of the bit string 
+                num += boost::multiprecision::pow(cpp_int(2), qubit-1);
             } else if (pauli_j == 2) {
                 //cpp_int perm_term = 1 << (qubit - 1);
                 //num += perm_term;
-                bit_num.set(qubit-1, true);
+                num += boost::multiprecision::pow(cpp_int(2), qubit-1);
                 coeff_i *= complex<double>(0, 1);
                 zs_i.push_back(qubit);
             } else if (pauli_j == 3) {
@@ -327,17 +303,17 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
         }
         coeffs.push_back(coeff_i);
         Zs.push_back(zs_i); // If zs is empty then no non-trivial diagonal components! (All identity operators)
-            
-        // Look for num in the previous list of Ps (permutations)
-        pair<bool , int> bit_in_set = bit_is_in_set(bit_num , Ps);
-        if(!bit_in_set.first){ 
+        
+        auto it = find(Ps.begin(), Ps.end(), num); // Look for num in the previous list of Ps (permutations)
+        
+        if(it == Ps.end()) {
             // num was not found in Ps, thus a new permutation matrix!
-            Ps.push_back(bit_num);
+            Ps.push_back(num);
             // We will add i-th element of coeffs and Zs to be associated with the current Ps!
             Z_track.push_back(vector<int> {i});
-        }else {
+        } else {
             // num was found in Ps, and P_index will be the index of Ps that matched num.
-            int P_index = bit_in_set.second;
+            int P_index = std::distance(Ps.begin(), it);
 
             vector<int> z_indices = Z_track[P_index];
 
@@ -355,9 +331,8 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
             }
         }
     }
-
     // Throw away the zero coefficients:
-    vector<bitset<64>> Ps_kept;
+    vector<cpp_int> Ps_kept;
     ZVecs Z_track_kept;
 
     for(int k = 0; k < Z_track.size(); k++){
@@ -377,26 +352,26 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
     }
 
     // Sorting everything based on indices of Ps:
-    vector<int> indices;
-    for(int i = 0; i < Ps.size(); i++){
-        indices.push_back(i);
+    vector<pair<cpp_int, int>> indexedP;
+    for(int i = 0; i < Ps_kept.size(); i++) {
+        indexedP.emplace_back(Ps_kept[i], i);
     }
-    sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
-        return BitsetComparator()(Ps_kept[a], Ps_kept[b]);
-    });
 
-
-    vector<bitset<64>> Ps_sorted;
+    vector<cpp_int> Ps_sorted;
     ZVecs Z_track_sorted;
+
+    std::sort(indexedP.begin() , indexedP.end());
     for(int i = 0; i < Ps_kept.size(); i++){
-        Ps_sorted.push_back(Ps_kept[indices[i]]);
-        Z_track_sorted.push_back(Z_track_kept[indices[i]]);
+            int index = indexedP[i].second;
+            Ps_sorted.push_back(indexedP[i].first);
+            Z_track_sorted.push_back(Z_track_kept[index]);
     }
 
     PZ_data.coeffs = coeffs; //Coeffs and Zs are kept as the original data
     PZ_data.Ps = Ps_sorted;
     PZ_data.Zs = Zs;
     PZ_data.Z_track = Z_track_sorted;
+    PZ_data.no_qubit = no_qubit;
 
     return PZ_data;
 }
@@ -405,20 +380,19 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
 // -------------------------------------------------------------------------------------------------------------- //
 
 
-//using namespace boost;
+using namespace boost;
 int main(int argc , char* argv[]){
     string fileName(argv[1]);  // Reading the name of the input .txt file describing the Hamiltonian
     vector<pair<complex<double>, vector<int>>> data = data_extract(fileName);
 
     // Unpacking the data from the input file "fileName"
     PZdata PZ_data = PZcomp(data);
-    vector<bitset<64>> Ps_bit = PZ_data.Ps;
-    vector<vector<bool>> Ps = downsize_bitset(Ps_bit);
+    vector<cpp_int> Ps = PZ_data.Ps;
     vector<complex<double>> coefficients = PZ_data.coeffs;
     vector<vector<int>> Z_track = PZ_data.Z_track;
     vector<vector<int>> Zs = PZ_data.Zs;
     vector<string> Zs_string;
-    //int no_qubit = PZ_data.no_qubit;
+    int no_qubit = PZ_data.no_qubit;
 
     // Converting the Z indices into string of bitsets!
     for(int i = 0; i < Zs.size();i++){
@@ -426,27 +400,30 @@ int main(int argc , char* argv[]){
     }
 
     // Convert Ps indices into vector of ints
-    vector<vector<bool>> Ps_nontrivial = Ps;
-    if(Ps_bit[0].to_ullong() < 1e-6){
+    vector<cpp_int> Ps_nontrivial = Ps;
+    if(Ps[0] == 0){
         Ps_nontrivial.erase(Ps_nontrivial.begin());
+    }
+    vector<vector<int>> Ps_binary , Ps_binary_unpad;
+    for(int i = 0; i < Ps_nontrivial.size(); i++){
+        pair<vector<int>, vector<int>> bin_i_combo = int_to_bin(Ps_nontrivial[i], no_qubit);
+        vector<int> bin_i_pad = bin_i_combo.first;
+        vector<int> bin_i_unpad = bin_i_combo.second;
+        Ps_binary.push_back(bin_i_pad);
+        Ps_binary_unpad.push_back(bin_i_unpad);
     }
 
     // Minimizing the size of the fundamental cycless
-    vector<vector<int>> Ps_binary = bit_to_intvec(Ps_nontrivial);
     vector<vector<int>> nullspace = Null2(Ps_binary);
-    eig_minimize(nullspace);
+    eig_minimize(nullspace); 
     cout << "Calculations done!" << endl;
     cout << "Making the output files ... " << endl;
 
-    int no_ps = Ps.size();
+    int no_ps = Ps_nontrivial.size();
     int nullity = nullspace.size();
     string output_h = fileName.substr(0, fileName.find_last_of(".")) + ".h" , output_cycle = fileName.substr(0, fileName.find_last_of(".")) + "_cycles.txt";
     ofstream output(output_h) , output_c(output_cycle);
 
-    cout << "The permutation matrices are: " << endl;
-    printMatrix(Ps_nontrivial);
-    cout << endl;
-    printMatrix(nullspace);
     // ********************************************************************** //
     // -------------------- Creating the the .h file ------------------------ //
     if(output.is_open()){
@@ -460,8 +437,8 @@ int main(int argc , char* argv[]){
         output << "std::bitset<N> P_matrix[Nop] = {";
         for(int i = 0; i < no_ps; i++){
             output << "std::bitset<N>(\"";
-            for(int j=0; j < Ps_nontrivial[i].size(); j++){
-                output << Ps_nontrivial[i][j];
+            for(int j=0; j < Ps_binary_unpad[i].size(); j++){
+                output << Ps_binary_unpad[i][j];
             }
             output << "\")";
             if(i < no_ps - 1){
@@ -483,7 +460,7 @@ int main(int argc , char* argv[]){
             }
         }
         output << "};" << endl;
-        output << endl; 
+        output << endl;
 
         // ---------------------------------------------------------------------- //
         // -------------------------- Diagonal terms ---------------------------- //
@@ -516,7 +493,7 @@ int main(int argc , char* argv[]){
             }
         }
         output << "};" << endl;
-        output << endl; 
+        output << endl;
 
         // ------------------------------------------------------------------------ //
         // --------------------------- Off-Diagonal terms ------------------------- //
@@ -589,6 +566,43 @@ int main(int argc , char* argv[]){
         output << "};" << endl;
 
         output.close();
+    }
+
+    // ******************************************************************************//
+    // ------------------------ Creating the cycles text file -----------------------//
+    
+    if(output_c.is_open()){
+        for(int i = 0; i < Ps.size(); i++){
+            output_c << "   " << boost::lexical_cast<std::string>(Ps[i]) << endl;
+            output_c << "------------------------------" << endl;
+            for(int j = 0; j < Z_track[i].size(); j++){
+                complex<double> c_ij = coefficients[Z_track[i][j]];
+                if(c_ij.imag() < 0){
+                    output_c << "   " << c_ij.real() << c_ij.imag() << "i   ";
+                }
+                else{
+                    output_c << "   " << c_ij.real() << "+" <<c_ij.imag() << "i   ";
+                }
+                vector<int> Zs_ij = Zs[Z_track[i][j]];
+                for(int k=0; k < Zs_ij.size() ; k++){
+                    output_c << Zs_ij[k] << "  ";
+                }
+                output_c << endl;
+            }
+            output_c << endl;
+        }
+        output_c << " The nullity is: " << endl;
+        output_c << "   " << nullity << endl;
+        output_c << endl;
+        output_c << " The nullspace basis vectors (fundamental cycles) are: " << endl;
+        for(int i=0; i < nullity; i++){
+            output_c << endl;
+            output_c << " The " << i+1 << " th fundamental cycles: " << endl;
+            for(int j = 0; j < no_ps ; j++){
+                output_c << "  " << nullspace[i][j] << endl;
+            } 
+        }
+        output_c.close();
     }
     
     cout << "All done!";
