@@ -506,7 +506,7 @@ int main(int argc , char* argv[]){
     cout << "Calculations done!" << endl;
     cout << "Making the output files ... " << endl;
 
-    string output_operator = Op_fileName.substr(0, Op_fileName.find_last_of(".")) + "_operator.h";
+    string output_operator = Op_fileName.substr(0, Op_fileName.find_last_of(".")) + "_permutations.h";
     ofstream output(output_operator);
 
 
