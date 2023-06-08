@@ -1,5 +1,4 @@
 #include <iostream>
-#include <time.h>
 #include <fstream>
 #include <vector>
 #include <string>
@@ -118,23 +117,33 @@ int int_sum(vector<int> vec){
 // This function minimizes the size of the cycles (nullspace basis vectors with least 1s):
 void eig_minimize(vector<vector<int>>& null_eigs){
     int null_size = null_eigs.size();
+
     vector<int> null_n(null_size);
     for(int i = 0; i < null_size; i++){
         null_n[i] = int_sum(null_eigs[i]);
     }
+    auto min_cyc = min_element(null_n.begin(), null_n.end());
+    bool min_equal_three = true;
+
     vector<vector<int>> null_eigs_min , null_eigs_high;
     vector<int> null_eigs_min_ind , null_eigs_high_ind;
+    
     for(int i = 0; i < null_size; i++){
-        if(null_n[i] == 3){
+        if(null_n[i] == *min_cyc & min_equal_three){
             null_eigs_min.push_back(null_eigs[i]);
             null_eigs_min_ind.push_back(i);
+            if(*min_cyc > 3){
+                // this is to ensure that if no cycles are of length three or less, only one minimum is taken to be
+                // in the null_eigs_min s. This is to make sure that all higher than three cycles get a chance to 
+                // be minimized.
+                min_equal_three = false;
+            }
         }
         else{
             null_eigs_high.push_back(null_eigs[i]);
             null_eigs_high_ind.push_back(i);
         }
     }
-
     int high_size = null_eigs_high_ind.size();
     for(int k = 0; k < high_size; k++){
         vector<int> high_eig_k = null_eigs[null_eigs_high_ind[k]];
@@ -142,12 +151,10 @@ void eig_minimize(vector<vector<int>>& null_eigs){
         for(int l = 0; l < null_eigs_min_ind.size(); l++){
             vector<int> high_to_min = GF2_add(high_eig_k , null_eigs[null_eigs_min_ind[l]]);
             int low_k = int_sum(high_to_min);
-            if(low_k == 3){
+            if(low_k <= 3){
                 null_eigs[null_eigs_high_ind[k]] = high_to_min;
                 null_eigs_min_ind.push_back(null_eigs_high_ind[k]);
                 std::sort(null_eigs_min_ind.begin() , null_eigs_min_ind.end());
-
-                //null_eigs_high_ind.erase(null_eigs_high_ind.begin() + k);
                 break;
             }
             else if(low_k < null_k){
@@ -296,7 +303,7 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
     vector<bitset<64>> Ps;
     Coeffs coeffs;
     ZVecs Zs;
-    ZVecs Z_track; //This vector maps the Zs to Ps it is a many to one mapping!
+    ZVecs Z_track; //This vector maps the Zs to Ps: it is a many to one mapping!
 
     for (int i = 0; i<l; i++){
         complex<double> coeff_i = data[i].first;
@@ -413,7 +420,7 @@ int main(int argc , char* argv[]){
     string Op_fileName(argv[2]);  // Reading the name of the input .txt file describing the Hamiltonian
     vector<pair<complex<double>, vector<int>>> Op_data = data_extract(Op_fileName);
 
-    // Unpacking the data from the input file "fileNames"
+    // Unpacking the Hamiltonian data from the input file 
     PZdata PZ_data_Ham = PZcomp(Ham_data);
     vector<bitset<64>> Ps_bit_Ham = PZ_data_Ham.Ps;
     vector<vector<bool>> Ps_Ham = downsize_bitset(Ps_bit_Ham);
@@ -422,48 +429,124 @@ int main(int argc , char* argv[]){
     vector<vector<int>> Zs_Ham = PZ_data_Ham.Zs;
     vector<string> Zs_string_Ham;
 
+    // Unpacking the Operator data from the input file 
+    PZdata PZ_data_Op = PZcomp(Op_data);
+    vector<bitset<64>> Ps_bit_Op = PZ_data_Op.Ps;
+    vector<vector<bool>> Ps_Op = downsize_bitset(Ps_bit_Op);
+    vector<complex<double>> coefficients_Op = PZ_data_Op.coeffs;
+    vector<vector<int>> Z_track_Op = PZ_data_Op.Z_track;
+    vector<vector<int>> Zs_Op = PZ_data_Op.Zs;
+    vector<string> Zs_string_Op;
+    bool D0_exists = false, P0_exists = false;
+
     // Converting the Z indices into string of bitsets!
-    for(int i = 0; i < Zs.size();i++){
-        Zs_string.push_back(int_to_str(Zs[i]));
+    for(int i = 0; i < Zs_Ham.size();i++){
+        Zs_string_Ham.push_back(int_to_str(Zs_Ham[i]));
+    }
+
+    // Converting the Z indices into string of bitsets!
+    for(int i = 0; i < Zs_Op.size();i++){
+        Zs_string_Op.push_back(int_to_str(Zs_Op[i]));
     }
 
     // Convert Ps indices into vector of bools
-    vector<vector<bool>> Ps_nontrivial = Ps;
-    if(Ps_bit[0].to_ullong() < 1e-6){
-        Ps_nontrivial.erase(Ps_nontrivial.begin());
+    vector<vector<bool>> Ps_Ham_nontrivial = Ps_Ham;
+    if(Ps_bit_Ham[0].to_ullong() < 1e-6){
+        Ps_Ham_nontrivial.erase(Ps_Ham_nontrivial.begin());
+        D0_exists = true;
     }
 
-    // Minimizing the size of the fundamental cycless
-    vector<vector<int>> Ps_binary = bit_to_intvec(Ps_nontrivial);
-    vector<vector<int>> nullspace = Null2(Ps_binary);
-    eig_minimize(nullspace);
+    // Convert Ps indices into vector of bools
+    vector<vector<bool>> Ps_Op_nontrivial = Ps_Op;
+    if(Ps_bit_Op[0].to_ullong() < 1e-6){
+        Ps_Op_nontrivial.erase(Ps_Op_nontrivial.begin());
+        P0_exists = true;
+    }
+
+    vector<vector<int>> Ps_binary_Ham = bit_to_intvec(Ps_Ham_nontrivial);
+    vector<vector<int>> Ps_binary_Op = bit_to_intvec(Ps_Op_nontrivial);
+
+    // Combine the permutations of Hamiltonians with each permutation from the operator and compute the nullspace
+    int no_ps = Ps_Ham_nontrivial.size() , no_ops = Ps_Op_nontrivial.size();
+    vector<vector<int>> Op_to_Ham;
+    vector<int> zero_vector;
+    for(int i = 0; i < no_ps; i++){
+        zero_vector.push_back(0);
+    }
+
+    for(int k=0; k < Ps_binary_Op.size(); k++){
+        vector<vector<int>> Ps_bin_total = Ps_binary_Ham, nullspace_k; 
+        bool permutation_found = false;
+        Ps_bin_total.push_back(Ps_binary_Op[k]);
+        nullspace_k = Null2(Ps_bin_total);
+        eig_minimize(nullspace_k);
+        int min_ops=100000 , min_index;
+        for(int i = 0; i< nullspace_k.size(); i++){
+            int sum_ops = 0;
+            if(nullspace_k[i][no_ps] == 1){
+                permutation_found = true;
+                //for(int j =0; j < no_ps; j++){
+                //    sum_ops += nullspace_k[i][j];
+                //}
+                sum_ops = int_sum(nullspace_k[i]);
+                if(sum_ops < min_ops){
+                    min_ops = sum_ops;
+                    min_index = i;
+                }
+            }
+        }
+        if(permutation_found){
+            Op_to_Ham.push_back(nullspace_k[min_index]);
+        }
+        else{
+            Op_to_Ham.push_back(zero_vector);
+        }
+    }
+
     cout << "Calculations done!" << endl;
     cout << "Making the output files ... " << endl;
 
-    int no_ps = Ps.size();
-    int nullity = nullspace.size();
-    string output_h = fileName.substr(0, fileName.find_last_of(".")) + ".h" , output_cycle = fileName.substr(0, fileName.find_last_of(".")) + "_cycles.txt";
-    ofstream output(output_h) , output_c(output_cycle);
+    string output_operator = Op_fileName.substr(0, Op_fileName.find_last_of(".")) + "_operator.h";
+    ofstream output(output_operator);
 
-    cout << "The permutation matrices are: " << endl;
-    printMatrix(Ps_nontrivial);
-    cout << endl;
-    printMatrix(nullspace);
+
+    // ------- Operator Measurement permutations in terms of Hamiltonian permutations ----- //
+    // Printing only the relevant permutations for the measurement operator (any operator that can be
+    // written as a mod 2 addition of the permutations in the Hamiltonian.)
+    vector<int> rel_perms;
+    bool non_triv_offdiags_exists = false;
+    for(int i = 0; i < no_ops; i++){
+        if(int_sum(Op_to_Ham[i]) > 0){
+            rel_perms.push_back(i);
+        }
+    }
+    // --------------------------------------------------------
+    // Delete the Z_tracks of the trivial permutations:
+    vector<vector<int>> Z_track_Op_kept;
+    int counter = 0;
+    for(int i = 0 ; i < no_ops; i++){
+        if(rel_perms[counter] == i){
+            Z_track_Op_kept.push_back(Z_track_Op[i + int(P0_exists)]);
+            counter++;
+        }
+    }
+    no_ops = rel_perms.size();
     // ********************************************************************** //
     // -------------------- Creating the the .h file ------------------------ //
     if(output.is_open()){
-        output << "#define N        " << no_qubit << endl;
-        output << "#define Nop      " << no_ps << endl;
-        output << "#define Ncycles  " << nullity << endl;
+        output << "#define N        " << no_qubit << "  // This defines the number of qubits " << endl;
+        output << "#define Nop      " << no_ps << "  // This defines the number of operators in the Hamiltonian" << endl; // Number of permutations of the measurement operator!
+        output << "#define Ncycles  " << no_ops << "  // This defines the number of non-trivial permutations of the measurement operator" << endl;
         output << endl;
         
         // ---------------- Permutation matrices and cycles --------------------- //
-        // The permutation bitsets
+        // The permutation matrices of the Hamiltonian
+        output << "// P_matrix is the set of permutation matrices in the Hamiltonian" <<endl;
         output << "std::bitset<N> P_matrix[Nop] = {";
         for(int i = 0; i < no_ps; i++){
             output << "std::bitset<N>(\"";
-            for(int j=0; j < Ps_nontrivial[i].size(); j++){
-                output << Ps_nontrivial[i][j];
+            for(int j=0; j < Ps_Ham_nontrivial[i].size(); j++){
+                output << Ps_Ham_nontrivial[i][j];
             }
             output << "\")";
             if(i < no_ps - 1){
@@ -472,125 +555,164 @@ int main(int argc , char* argv[]){
         }
         output << "};" << endl;
 
-        // The cycle bitsets
-        output << "std::bitset<Nop> cycles[Ncycles] = {";
-        for(int i = 0; i < nullity; i++){
-            output << "std::bitset<Nop>(\"";
-            for(int j=0; j < no_ps; j++){
-                output << nullspace[i][j];
+        if(rel_perms.size() > 0){
+            non_triv_offdiags_exists = true;
+            output << "// Meas_Op[Ncycles] is a set of bitsets representing each permutation of the operator" <<endl;
+            output << "//       as a product of permutations available in the Hamiltonian." <<endl;
+            output << "std::bitset<Nop> Meas_Op[Ncycles] = {";
+            for(int i = 0; i < no_ops; i++){
+                output << "std::bitset<Nop>(\"";
+                for(int j=0; j < no_ps; j++){
+                    output << Op_to_Ham[rel_perms[i]][j];
+                }
+                output << "\")";
+                if(i < no_ops-1){
+                    output << ", ";
+                }
             }
-            output << "\")";
-            if(i < nullity-1){
-                output << ", ";
-            }
+            output << "};" << endl;
+            output << endl; 
+        }else{
+            output << "No relevant permutation operators. The expectation value of this operator is zero." << endl;
         }
-        output << "};" << endl;
-        output << endl; 
+        
 
-        // ---------------------------------------------------------------------- //
-        // -------------------------- Diagonal terms ---------------------------- //
-        output << "const int D0_size = " << Z_track[0].size() << ";" << endl;
-        output << "double D0_coeff[D0_size] = {";
-        for(int i=0;i<Z_track[0].size();i++){
-            complex<double> c_ij = coefficients[Z_track[0][i]];
-            if(abs(c_ij.imag()) > 1e-7 ){
-                if(c_ij.imag() < 0){
-                output << c_ij.real() << c_ij.imag() << "i";
+        // ---------- Permutation Matrix Representation of the measurement operator -------- //
+        // --------------------------------- Diagonal terms -------------------------------- //
+        if(P0_exists){
+            output << "const int D0_size = " << Z_track_Op[0].size() << ";" << endl;
+            output << "double D0_coeff[D0_size] = {";
+            for(int i=0;i<Z_track_Op[0].size();i++){
+                complex<double> c_ij = coefficients_Op[Z_track_Op[0][i]];
+                if(abs(c_ij.real()) > 1e-7){
+                    if(abs(c_ij.imag()) > 1e-7 ){
+                        if(c_ij.imag() < 0){
+                        output << c_ij.real() << c_ij.imag() << "i";
+                        }
+                        else{
+                            output << c_ij.real() << "+" << c_ij.imag() << "i";
+                        }
+                    }
+                    else{
+                        output << c_ij.real();
+                    }
+                }else{
+                    if(abs(c_ij.imag()) > 1e-7 ){
+                        if(c_ij.imag() < 0){
+                        output << c_ij.imag() << "i";
+                        }
+                        else{
+                            output  << c_ij.imag() << "i";
+                        }
+                    }
                 }
-                else{
-                    output << c_ij.real() << "+" << c_ij.imag() << "i";
+                if(i < Z_track_Op[0].size() - 1){
+                    output << ", "; 
                 }
             }
-            else{
-                output << c_ij.real();
+            output << "};" << endl;
+            output << "std::bitset<N> D0_product[D0_size] = {";
+            for(int i = 0; i < Z_track_Op[0].size(); i++){
+                //vector<int> Zs_i = Zs_Op[Z_track_Op[0][i]];
+                //output << "std::bitset<N>(\"" << int_to_str(Zs_i) << "\")";
+                output << "std::bitset<N>(\"" << Zs_string_Op[Z_track_Op[0][i]] << "\")";
+                if(i < Z_track_Op[0].size() - 1){
+                    output << ", ";
+                }
             }
-            if(i < Z_track[0].size() - 1){
-                output << ", "; 
-            }
+            output << "};" << endl;
+            output << endl; 
+        }else{
+            output << "const int D0_size = 0;" << endl;
+            output << endl;
         }
-        output << "};" << endl;
-        output << "std::bitset<N> D0_product[D0_size] = {";
-        for(int i = 0; i < Z_track[0].size(); i++){
-            vector<int> Zs_i = Zs[Z_track[0][i]];
-            output << "std::bitset<N>(\"" << int_to_str(Zs_i) << "\")";
-            if(i < Z_track[0].size() - 1){
-                output << ", ";
-            }
-        }
-        output << "};" << endl;
-        output << endl; 
 
         // ------------------------------------------------------------------------ //
         // --------------------------- Off-Diagonal terms ------------------------- //
         // Finding D_maxsize:
-        int D_max = 0 , D_start;
-        vector<int> D_size;
-        if(Ps_nontrivial.size() == Ps.size()) // In case of no diagonal term (i.e. D_0 = 0)
-        {
-            D_start = 0;
-        }else{
-            D_start = 1;
-        }
-        for(int i = D_start; i < Z_track.size(); i++){
-            int z_size_i = Z_track[i].size();
-            D_size.push_back(z_size_i);
-            if(z_size_i > D_max){
-                D_max = z_size_i;
-            }
-        }
-        output << "const int D_maxsize = " << D_max << " ;" << endl;
-        output << "int D_size[Nop] = {";
-        for(int i=0;i<no_ps;i++){
-            output << D_size[i];
-            if(i < no_ps - 1){
-                output << ", ";
-            }
-        }
-        output << "};" << endl;
-        output << "double D_coeff[Nop][D_maxsize] = {";
-        for(int i = D_start; i < Z_track.size() ; i++){
-            output << "{";
-            for(int j = 0; j < Z_track[i].size(); j++){
-                complex<double> c_ij = coefficients[Z_track[i][j]];
-                if(abs(c_ij.imag()) > 1e-7 ){
-                    if(c_ij.imag() < 0){
-                        output << c_ij.real() << c_ij.imag() << "i";
-                    }
-                    else{
-                        output << c_ij.real() << "+" << c_ij.imag() <<"i";
-                    }
-                }
-                else{
-                    output << c_ij.real();
-                }
-                if(j < Z_track[i].size() - 1){
-                    output << ", "; 
+        if(non_triv_offdiags_exists){
+            int D_max = 0, D_start;
+            vector<int> D_size;
+            /*if(!D0_exists) // In case of no diagonal term (i.e. D_0 = 0)
+            {
+                D_start = 0;
+            }else{
+                D_start = 1;
+            }*/
+            for(int i = 0; i < no_ops; i++){
+                int z_size_i = Z_track_Op_kept[i].size();
+                D_size.push_back(z_size_i);
+                if(z_size_i > D_max){
+                    D_max = z_size_i;
                 }
             }
-            output << "}";
-            if(i < Z_track.size()-1){
-                output << ", ";
-            }
-        }
-        output << "};" << endl;
-        output << "std::bitset<N> D_product[Nop][D_maxsize] = {";
-        for(int i = D_start; i < Z_track.size() ; i++){
-            output << "{";
-            for(int j = 0; j < Z_track[i].size(); j++){
-                vector<int> z_ij = Zs[Z_track[i][j]];
-                output << "std::bitset<N>(\"" << int_to_str(z_ij) << "\")";
-                if(j < Z_track[i].size() - 1){
-                    output << ", "; 
+            output << "const int D_maxsize = " << D_max << " ;" << endl;
+            output << "int D_size[Ncycles] = {";
+            for(int i=0;i<no_ops;i++){
+                output << D_size[i];
+                if(i < no_ops - 1){
+                    output << ", ";
                 }
             }
-            output << "}";
-            if(i < Z_track.size()-1){
-                output << ", ";
-            }
-        }
-        output << "};" << endl;
 
-        output.close();
+            output << "};" << endl;
+            output << "double D_coeff[Ncycles][D_maxsize] = {";
+            for(int i = D_start; i < no_ops; i++){
+                output << "{";
+                for(int j = 0; j < Z_track_Op_kept[i].size(); j++){
+                    complex<double> c_ij = coefficients_Op[Z_track_Op_kept[i][j]];
+                    if(abs(c_ij.real()) > 1e-7){
+                        if(abs(c_ij.imag()) > 1e-7 ){
+                            if(c_ij.imag() < 0){
+                            output << c_ij.real() << c_ij.imag() << "i";
+                            }
+                            else{
+                                output << c_ij.real() << "+" << c_ij.imag() << "i";
+                            }
+                        }
+                        else{
+                            output << c_ij.real();
+                        }
+                    }else{
+                        if(abs(c_ij.imag()) > 1e-7 ){
+                            if(c_ij.imag() < 0){
+                            output << c_ij.imag() << "i";
+                            }
+                            else{
+                                output  << c_ij.imag() << "i";
+                            }
+                        }
+                    }
+                    if(j < Z_track_Op_kept[i].size() - 1){
+                        output << ", "; 
+                    }
+                }
+                output << "}";
+                if(i < no_ops-1){
+                    output << ", ";
+                }
+            }
+            output << "};" << endl;
+            output << "std::bitset<N> D_product[Ncycles][D_maxsize] = {";
+            for(int i = D_start; i < Z_track_Op_kept.size() ; i++){
+                output << "{";
+                for(int j = 0; j < Z_track_Op_kept[i].size(); j++){
+                    //vector<int> z_ij = Zs_Op[Z_track_Op_kept[i][j]];
+                    //output << "std::bitset<N>(\"" << int_to_str(z_ij) << "\")";
+                    output << "std::bitset<N>(\"" << Zs_string_Op[Z_track_Op_kept[i][j]] << "\")";
+                    if(j < Z_track_Op_kept[i].size() - 1){
+                        output << ", "; 
+                    }
+                }
+                output << "}";
+                if(i < Z_track_Op_kept.size()-1){
+                    output << ", ";
+                }
+            }
+            output << "};" << endl;
+
+            output.close();
+        }
     }
     
     cout << "All done!";
