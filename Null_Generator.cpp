@@ -1,5 +1,4 @@
 #include <iostream>
-#include <time.h>
 #include <fstream>
 #include <vector>
 #include <string>
@@ -118,23 +117,33 @@ int int_sum(vector<int> vec){
 // This function minimizes the size of the cycles (nullspace basis vectors with least 1s):
 void eig_minimize(vector<vector<int>>& null_eigs){
     int null_size = null_eigs.size();
+
     vector<int> null_n(null_size);
     for(int i = 0; i < null_size; i++){
         null_n[i] = int_sum(null_eigs[i]);
     }
+    auto min_cyc = min_element(null_n.begin(), null_n.end());
+    bool min_equal_three = true;
+
     vector<vector<int>> null_eigs_min , null_eigs_high;
     vector<int> null_eigs_min_ind , null_eigs_high_ind;
+    
     for(int i = 0; i < null_size; i++){
-        if(null_n[i] == 3){
+        if(null_n[i] == *min_cyc & min_equal_three){
             null_eigs_min.push_back(null_eigs[i]);
             null_eigs_min_ind.push_back(i);
+            if(*min_cyc > 3){
+                // this is to ensure that if no cycles are of length three or less, only one minimum is taken to be
+                // in the null_eigs_min s. This is to make sure that all higher than three cycles get a chance to 
+                // be minimized.
+                min_equal_three = false;
+            }
         }
         else{
             null_eigs_high.push_back(null_eigs[i]);
             null_eigs_high_ind.push_back(i);
         }
     }
-
     int high_size = null_eigs_high_ind.size();
     for(int k = 0; k < high_size; k++){
         vector<int> high_eig_k = null_eigs[null_eigs_high_ind[k]];
@@ -142,12 +151,10 @@ void eig_minimize(vector<vector<int>>& null_eigs){
         for(int l = 0; l < null_eigs_min_ind.size(); l++){
             vector<int> high_to_min = GF2_add(high_eig_k , null_eigs[null_eigs_min_ind[l]]);
             int low_k = int_sum(high_to_min);
-            if(low_k == 3){
+            if(low_k <= 3){
                 null_eigs[null_eigs_high_ind[k]] = high_to_min;
                 null_eigs_min_ind.push_back(null_eigs_high_ind[k]);
                 std::sort(null_eigs_min_ind.begin() , null_eigs_min_ind.end());
-
-                //null_eigs_high_ind.erase(null_eigs_high_ind.begin() + k);
                 break;
             }
             else if(low_k < null_k){
