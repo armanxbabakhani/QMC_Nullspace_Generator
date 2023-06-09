@@ -447,8 +447,8 @@ int main(int argc , char* argv[]){
 
     int no_ps = Ps.size();
     int nullity = nullspace.size();
-    string output_h = fileName.substr(0, fileName.find_last_of(".")) + ".h" , output_cycle = fileName.substr(0, fileName.find_last_of(".")) + "_cycles.txt";
-    ofstream output(output_h) , output_c(output_cycle);
+    string output_h = fileName.substr(0, fileName.find_last_of(".")) + ".h";
+    ofstream output(output_h);
 
     cout << "The permutation matrices are: " << endl;
     printMatrix(Ps_nontrivial);
