@@ -631,14 +631,8 @@ int main(int argc , char* argv[]){
         // --------------------------- Off-Diagonal terms ------------------------- //
         // Finding D_maxsize:
         if(non_triv_offdiags_exists){
-            int D_max = 0, D_start;
+            int D_max = 0;
             vector<int> D_size;
-            /*if(!D0_exists) // In case of no diagonal term (i.e. D_0 = 0)
-            {
-                D_start = 0;
-            }else{
-                D_start = 1;
-            }*/
             for(int i = 0; i < no_ops; i++){
                 int z_size_i = Z_track_Op_kept[i].size();
                 D_size.push_back(z_size_i);
@@ -657,7 +651,7 @@ int main(int argc , char* argv[]){
 
             output << "};" << endl;
             output << "double D_coeff[Ncycles][D_maxsize] = {";
-            for(int i = D_start; i < no_ops; i++){
+            for(int i = 0; i < no_ops; i++){
                 output << "{";
                 for(int j = 0; j < Z_track_Op_kept[i].size(); j++){
                     complex<double> c_ij = coefficients_Op[Z_track_Op_kept[i][j]];
@@ -694,7 +688,7 @@ int main(int argc , char* argv[]){
             }
             output << "};" << endl;
             output << "std::bitset<N> D_product[Ncycles][D_maxsize] = {";
-            for(int i = D_start; i < Z_track_Op_kept.size() ; i++){
+            for(int i = 0; i < Z_track_Op_kept.size() ; i++){
                 output << "{";
                 for(int j = 0; j < Z_track_Op_kept[i].size(); j++){
                     //vector<int> z_ij = Zs_Op[Z_track_Op_kept[i][j]];
