@@ -14,7 +14,7 @@ int no_qubit = 0; // number of qubits is a global variable!
 
 // *****************************    Functions ******************************************* //
 template<typename T>
-void printMatrix(const vector<vector<T>>& matrix) {
+void Print_matrix(const vector<vector<T>>& matrix) {
     int m = matrix.size();
     int n = matrix[0].size();
 
@@ -106,7 +106,7 @@ vector<vector<int>> Null2(const vector<vector<int>>& matrix) {
     return nullspaceBasis;
 }
 
-int int_sum(vector<int> vec){
+int Int_sum(vector<int> vec){
     int sum = 0;
     for(int i = 0; i < vec.size(); i++){
         sum += vec[i];
@@ -115,12 +115,12 @@ int int_sum(vector<int> vec){
 }
 
 // This function minimizes the size of the cycles (nullspace basis vectors with least 1s):
-void eig_minimize(vector<vector<int>>& null_eigs){
-    int null_size = null_eigs.size();
+void Cycle_minimize(vector<vector<int>>& null_eigs){
+    int nullsize = null_eigs.size();
 
-    vector<int> null_n(null_size);
-    for(int i = 0; i < null_size; i++){
-        null_n[i] = int_sum(null_eigs[i]);
+    vector<int> null_n(nullsize);
+    for(int i = 0; i < nullsize; i++){
+        null_n[i] = Int_sum(null_eigs[i]);
     }
     auto min_cyc = min_element(null_n.begin(), null_n.end());
     bool min_equal_three = true;
@@ -128,7 +128,7 @@ void eig_minimize(vector<vector<int>>& null_eigs){
     vector<vector<int>> null_eigs_min , null_eigs_high;
     vector<int> null_eigs_min_ind , null_eigs_high_ind;
     
-    for(int i = 0; i < null_size; i++){
+    for(int i = 0; i < nullsize; i++){
         if(null_n[i] == *min_cyc & min_equal_three){
             null_eigs_min.push_back(null_eigs[i]);
             null_eigs_min_ind.push_back(i);
@@ -147,10 +147,10 @@ void eig_minimize(vector<vector<int>>& null_eigs){
     int high_size = null_eigs_high_ind.size();
     for(int k = 0; k < high_size; k++){
         vector<int> high_eig_k = null_eigs[null_eigs_high_ind[k]];
-        int null_k = int_sum(high_eig_k);
+        int null_k = Int_sum(high_eig_k);
         for(int l = 0; l < null_eigs_min_ind.size(); l++){
             vector<int> high_to_min = GF2_add(high_eig_k , null_eigs[null_eigs_min_ind[l]]);
-            int low_k = int_sum(high_to_min);
+            int low_k = Int_sum(high_to_min);
             if(low_k <= 3){
                 null_eigs[null_eigs_high_ind[k]] = high_to_min;
                 null_eigs_min_ind.push_back(null_eigs_high_ind[k]);
@@ -189,7 +189,7 @@ string int_to_str(vector<int> Z){
 }
 
 // This function extracts the input file information into a vector of pairs!
-vector<pair<complex<double>, vector<int>>> data_extract(const string& fileName){
+vector<pair<complex<double>, vector<int>>> Data_extract(const string& fileName){
     vector<pair<complex<double>, vector<int>>> data;
 
     ifstream inputFile(fileName);
@@ -232,7 +232,7 @@ vector<pair<complex<double>, vector<int>>> data_extract(const string& fileName){
 // Finding bitset in a vector of bitsets:
 // The max bitset will be 64 (the maximum number of qubits), and we will cut off accordingly
 // ..... when the number of qubits of the system is less than this number.
-pair<bool , int> bit_is_in_set(bitset<64> bitstring, vector<bitset<64>> bitsetVector) {
+pair<bool , int> Bit_is_in_set(bitset<64> bitstring, vector<bitset<64>> bitsetVector) {
     bool found = false;
     int found_indx = 0, ind_count = 0;
     pair<bool, int> output;
@@ -251,7 +251,7 @@ pair<bool , int> bit_is_in_set(bitset<64> bitstring, vector<bitset<64>> bitsetVe
 
 // This function downsizes the vector of bitsets from bitset<64> to bitset<no_qubit> to avoid 
 // ..... having redundant zeros.
-vector<vector<bool>> downsize_bitset(vector<bitset<64>> bitsetVector){
+vector<vector<bool>> Downsize_bitset(vector<bitset<64>> bitsetVector){
     extern int no_qubit;
     vector<vector<bool>> bitset_down;
     for(const auto& bitset : bitsetVector){
@@ -265,7 +265,7 @@ vector<vector<bool>> downsize_bitset(vector<bitset<64>> bitsetVector){
     return bitset_down;
 }
 
-vector<vector<int>> bit_to_intvec(vector<vector<bool>> bitsetVec){
+vector<vector<int>> Bit_to_intvec(vector<vector<bool>> bitsetVec){
     extern int no_qubit;
     vector<vector<int>> bit_int;
     for(auto const& bitset : bitsetVec){
@@ -336,7 +336,7 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
         Zs.push_back(zs_i); // If zs is empty then no non-trivial diagonal components! (All identity operators)
             
         // Look for num in the previous list of Ps (permutations)
-        pair<bool , int> bit_in_set = bit_is_in_set(bit_num , Ps);
+        pair<bool , int> bit_in_set = Bit_is_in_set(bit_num , Ps);
         if(!bit_in_set.first){ 
             // num was not found in Ps, thus a new permutation matrix!
             Ps.push_back(bit_num);
@@ -415,16 +415,17 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
 //using namespace boost;
 int main(int argc , char* argv[]){
     string fileName(argv[1]);  // Reading the name of the input .txt file describing the Hamiltonian
-    vector<pair<complex<double>, vector<int>>> data = data_extract(fileName);
+    vector<pair<complex<double>, vector<int>>> data = Data_extract(fileName);
 
     // Unpacking the data from the input file "fileName"
     PZdata PZ_data = PZcomp(data);
     vector<bitset<64>> Ps_bit = PZ_data.Ps;
-    vector<vector<bool>> Ps = downsize_bitset(Ps_bit);
+    vector<vector<bool>> Ps = Downsize_bitset(Ps_bit);
     vector<complex<double>> coefficients = PZ_data.coeffs;
     vector<vector<int>> Z_track = PZ_data.Z_track;
     vector<vector<int>> Zs = PZ_data.Zs;
     vector<string> Zs_string;
+    bool D0_exists = false;
     //int no_qubit = PZ_data.no_qubit;
 
     // Converting the Z indices into string of bitsets!
@@ -436,24 +437,22 @@ int main(int argc , char* argv[]){
     vector<vector<bool>> Ps_nontrivial = Ps;
     if(Ps_bit[0].to_ullong() < 1e-6){
         Ps_nontrivial.erase(Ps_nontrivial.begin());
+        D0_exists = true;
     }
 
     // Minimizing the size of the fundamental cycless
-    vector<vector<int>> Ps_binary = bit_to_intvec(Ps_nontrivial);
+    vector<vector<int>> Ps_binary = Bit_to_intvec(Ps_nontrivial);
     vector<vector<int>> nullspace = Null2(Ps_binary);
-    eig_minimize(nullspace);
+    Cycle_minimize(nullspace);
+    int no_ps = Ps_binary.size();
+    int nullity = nullspace.size();
+
     cout << "Calculations done!" << endl;
     cout << "Making the output files ... " << endl;
 
-    int no_ps = Ps.size();
-    int nullity = nullspace.size();
     string output_h = fileName.substr(0, fileName.find_last_of(".")) + ".h";
     ofstream output(output_h);
 
-    cout << "The permutation matrices are: " << endl;
-    printMatrix(Ps_nontrivial);
-    cout << endl;
-    printMatrix(nullspace);
     // ********************************************************************** //
     // -------------------- Creating the the .h file ------------------------ //
     if(output.is_open()){

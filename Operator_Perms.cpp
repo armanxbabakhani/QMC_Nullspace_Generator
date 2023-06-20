@@ -12,7 +12,7 @@ using namespace std;
 
 int no_qubit = 0; // number of qubits is a global variable!
 
-// *****************************    Functions ******************************************* //
+// ***************************** Functions ******************************************* //
 template<typename T>
 void printMatrix(const vector<vector<T>>& matrix) {
     int m = matrix.size();
@@ -69,7 +69,7 @@ vector<vector<int>> Null2(const vector<vector<int>>& matrix) {
     // sort the marked row
     std::sort(marked_rows.begin(), marked_rows.end());
 
-    // Remove consecutive duplicates (taking only unieque marked rows!)
+    // Remove consecutive duplicates (taking only unique marked rows!)
     auto it = unique(marked_rows.begin(), marked_rows.end());
     marked_rows.erase(it, marked_rows.end());
 
@@ -106,7 +106,7 @@ vector<vector<int>> Null2(const vector<vector<int>>& matrix) {
     return nullspaceBasis;
 }
 
-int int_sum(vector<int> vec){
+int Int_sum(vector<int> vec){
     int sum = 0;
     for(int i = 0; i < vec.size(); i++){
         sum += vec[i];
@@ -115,53 +115,70 @@ int int_sum(vector<int> vec){
 }
 
 // This function minimizes the size of the cycles (nullspace basis vectors with least 1s):
-void eig_minimize(vector<vector<int>>& null_eigs){
-    int null_size = null_eigs.size();
+// This Eig_minimize is specifically designed for operator permutations, and functions differently
+//      than the one in Null_Generator, which is used to find closed cycles of minimum length 3.
+void Eig_minimize(vector<vector<int>>& nullEigs){
+    int nullsize = nullEigs.size() , noops = nullEigs[0].size(); //noops is the number of operators
 
-    vector<int> null_n(null_size);
-    for(int i = 0; i < null_size; i++){
-        null_n[i] = int_sum(null_eigs[i]);
+    vector<int> nulln(nullsize);
+    for(int i = 0; i < nullsize; i++){
+        nulln[i] = Int_sum(nullEigs[i]);
     }
-    auto min_cyc = min_element(null_n.begin(), null_n.end());
-    bool min_equal_three = true;
+    auto mincyc = min_element(nulln.begin(), nulln.end());
 
-    vector<vector<int>> null_eigs_min , null_eigs_high;
-    vector<int> null_eigs_min_ind , null_eigs_high_ind;
+    vector<int> nullEigsMinind , nullEigsHighind, nullEigsOnesind; // the indices of eigenvectors ending with 1
     
-    for(int i = 0; i < null_size; i++){
-        if(null_n[i] == *min_cyc & min_equal_three){
-            null_eigs_min.push_back(null_eigs[i]);
-            null_eigs_min_ind.push_back(i);
-            if(*min_cyc > 3){
-                // this is to ensure that if no cycles are of length three or less, only one minimum is taken to be
-                // in the null_eigs_min s. This is to make sure that all higher than three cycles get a chance to 
-                // be minimized.
-                min_equal_three = false;
-            }
+    for(int i = 0; i < nullsize; i++){
+        if(nulln[i] == *mincyc){
+            nullEigsMinind.push_back(i);
+        }
+        else if(nullEigs[i][noops-1] == 1){
+            nullEigsOnesind.push_back(i);
         }
         else{
-            null_eigs_high.push_back(null_eigs[i]);
-            null_eigs_high_ind.push_back(i);
+            nullEigsHighind.push_back(i);
         }
     }
-    int high_size = null_eigs_high_ind.size();
-    for(int k = 0; k < high_size; k++){
-        vector<int> high_eig_k = null_eigs[null_eigs_high_ind[k]];
-        int null_k = int_sum(high_eig_k);
-        for(int l = 0; l < null_eigs_min_ind.size(); l++){
-            vector<int> high_to_min = GF2_add(high_eig_k , null_eigs[null_eigs_min_ind[l]]);
-            int low_k = int_sum(high_to_min);
-            if(low_k <= 3){
-                null_eigs[null_eigs_high_ind[k]] = high_to_min;
-                null_eigs_min_ind.push_back(null_eigs_high_ind[k]);
-                std::sort(null_eigs_min_ind.begin() , null_eigs_min_ind.end());
-                break;
-            }
-            else if(low_k < null_k){
-                null_eigs[null_eigs_high_ind[k]] = high_to_min;
-                high_eig_k = high_to_min;
+    int highsize = nullEigsHighind.size();
+    int minsize = nullEigsMinind.size();
+    
+    for(int i=0; i < minsize; i++){
+        int vecisum = Int_sum(nullEigs[nullEigsMinind[i]]);
+        vector<int> bestVec = nullEigs[nullEigsMinind[i]]; 
+        for(int j=0; j < minsize; j++){
+            if(j!= i){
+                vector<int> tryVecij = GF2_add(nullEigs[nullEigsMinind[i]] , nullEigs[nullEigsMinind[j]]);
+                int tryvecijsum = Int_sum(tryVecij);
+                if(tryvecijsum < vecisum){
+                    vecisum = tryvecijsum;
+                    bestVec = tryVecij;
+                }
             }
         }
+        nullEigs[nullEigsMinind[i]] = bestVec;
+    }
+
+    for(int k = 0; k < nullEigsOnesind.size(); k++){
+        int oneskind = nullEigsOnesind[k];
+        vector<int> highEigk = nullEigs[oneskind];
+        vector<int> bestEigk = highEigk;
+        int bestnullk = Int_sum(highEigk);
+        for(int l = 0; l < nullsize; l++){
+            if(l != oneskind){
+                vector<int> highTomin = GF2_add(highEigk , nullEigs[l]);
+                int lowk = Int_sum(highTomin);
+                if(lowk < 3){
+                    bestEigk = highTomin;
+                    bestnullk = lowk;
+                    break;
+                }
+                else if(lowk < bestnullk){
+                    bestEigk = highTomin;
+                    bestnullk = lowk;
+                }
+            }
+        }
+        nullEigs[oneskind] = bestEigk;
     }
 }
 
@@ -478,29 +495,32 @@ int main(int argc , char* argv[]){
         vector<vector<int>> Ps_bin_total = Ps_binary_Ham, nullspace_k; 
         bool permutation_found = false;
         Ps_bin_total.push_back(Ps_binary_Op[k]);
+        cout << "k = " << k << endl;
+        cout << "The permutation set is: " << endl;
+        printMatrix(Ps_bin_total);
+        cout << "The nullspace is: " << endl;
         nullspace_k = Null2(Ps_bin_total);
-        eig_minimize(nullspace_k);
+        Eig_minimize(nullspace_k);
         int min_ops=100000 , min_index;
         for(int i = 0; i< nullspace_k.size(); i++){
             int sum_ops = 0;
             if(nullspace_k[i][no_ps] == 1){
                 permutation_found = true;
-                //for(int j =0; j < no_ps; j++){
-                //    sum_ops += nullspace_k[i][j];
-                //}
-                sum_ops = int_sum(nullspace_k[i]);
+                sum_ops = Int_sum(nullspace_k[i]);
                 if(sum_ops < min_ops){
                     min_ops = sum_ops;
                     min_index = i;
                 }
             }
         }
+        cout << "min_index is " << min_index << endl; 
         if(permutation_found){
             Op_to_Ham.push_back(nullspace_k[min_index]);
         }
         else{
             Op_to_Ham.push_back(zero_vector);
         }
+        cout << endl;
     }
 
     cout << "Calculations done!" << endl;
@@ -516,7 +536,7 @@ int main(int argc , char* argv[]){
     vector<int> rel_perms;
     bool non_triv_offdiags_exists = false;
     for(int i = 0; i < no_ops; i++){
-        if(int_sum(Op_to_Ham[i]) > 0){
+        if(Int_sum(Op_to_Ham[i]) > 0){
             rel_perms.push_back(i);
         }
     }
@@ -691,8 +711,6 @@ int main(int argc , char* argv[]){
             for(int i = 0; i < Z_track_Op_kept.size() ; i++){
                 output << "{";
                 for(int j = 0; j < Z_track_Op_kept[i].size(); j++){
-                    //vector<int> z_ij = Zs_Op[Z_track_Op_kept[i][j]];
-                    //output << "std::bitset<N>(\"" << int_to_str(z_ij) << "\")";
                     output << "std::bitset<N>(\"" << Zs_string_Op[Z_track_Op_kept[i][j]] << "\")";
                     if(j < Z_track_Op_kept[i].size() - 1){
                         output << ", "; 
