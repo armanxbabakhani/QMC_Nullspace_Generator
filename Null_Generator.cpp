@@ -115,28 +115,67 @@ int Int_sum(vector<int> vec){
 }
 
 // This function minimizes the size of the cycles (nullspace basis vectors with least 1s):
-void Cycle_minimize(vector<vector<int>>& null_eigs){
-    int nullsize = null_eigs.size();
+int Cycle_minimize(vector<vector<int>>& null_eigs){
+    int nullsize = null_eigs.size() , number_minimized = 0;
 
     vector<int> null_n(nullsize);
     for(int i = 0; i < nullsize; i++){
         null_n[i] = Int_sum(null_eigs[i]);
     }
+    vector<int> null_eigs_high_ind;
     auto min_cyc = min_element(null_n.begin(), null_n.end());
-    bool min_equal_three = true;
+    
+    for(int i = 0; i < nullsize; i++){
+        if(null_n[i] > *min_cyc){
+            null_eigs_high_ind.push_back(i);
+        }
+    }
+    
+    int high_size = null_eigs_high_ind.size();
+    for(int k = 0; k < high_size; k++){
+        vector<int> high_eig_k = null_eigs[null_eigs_high_ind[k]];
+        int null_k = Int_sum(high_eig_k);
+        for(int l = 0; l < nullsize; l++){
+            if( l != null_eigs_high_ind[k]){
+                vector<int> high_to_min = GF2_add(high_eig_k , null_eigs[l]);
+                int low_k = Int_sum(high_to_min);
+                if(low_k == *min_cyc){
+                    number_minimized++;
+                    null_eigs[null_eigs_high_ind[k]] = high_to_min;
+                    break;
+                }
+                else if(low_k < null_k){
+                    null_eigs[null_eigs_high_ind[k]] = high_to_min;
+                    high_eig_k = high_to_min;
+                }
+            }
+        }
+    }
+    return high_size - number_minimized;
+}
+
+pair<int, int> Cycle_minimize_0(vector<vector<int>>& null_eigs , int min_cyc_length){
+    int nullsize = null_eigs.size();
+    pair<int, int> cycdata;
+    vector<int> null_n(nullsize);
+    for(int i = 0; i < nullsize; i++){
+        null_n[i] = Int_sum(null_eigs[i]);
+    }
+    auto min_cyc = min_element(null_n.begin(), null_n.end());
+    bool min_cycle_satisfied = true;
 
     vector<vector<int>> null_eigs_min , null_eigs_high;
     vector<int> null_eigs_min_ind , null_eigs_high_ind;
     
     for(int i = 0; i < nullsize; i++){
-        if(null_n[i] == *min_cyc & min_equal_three){
+        if(null_n[i] == *min_cyc & min_cycle_satisfied){
             null_eigs_min.push_back(null_eigs[i]);
             null_eigs_min_ind.push_back(i);
-            if(*min_cyc > 3){
+            if(*min_cyc > min_cyc_length){
                 // this is to ensure that if no cycles are of length three or less, only one minimum is taken to be
                 // in the null_eigs_min s. This is to make sure that all higher than three cycles get a chance to 
                 // be minimized.
-                min_equal_three = false;
+                min_cycle_satisfied = false;
             }
         }
         else{
@@ -144,17 +183,19 @@ void Cycle_minimize(vector<vector<int>>& null_eigs){
             null_eigs_high_ind.push_back(i);
         }
     }
-    int high_size = null_eigs_high_ind.size();
+    
+    int high_size = null_eigs_high_ind.size() , number_of_minimized=0;
     for(int k = 0; k < high_size; k++){
         vector<int> high_eig_k = null_eigs[null_eigs_high_ind[k]];
         int null_k = Int_sum(high_eig_k);
         for(int l = 0; l < null_eigs_min_ind.size(); l++){
             vector<int> high_to_min = GF2_add(high_eig_k , null_eigs[null_eigs_min_ind[l]]);
             int low_k = Int_sum(high_to_min);
-            if(low_k <= 3){
+            if(low_k <= min_cyc_length){
                 null_eigs[null_eigs_high_ind[k]] = high_to_min;
                 null_eigs_min_ind.push_back(null_eigs_high_ind[k]);
                 std::sort(null_eigs_min_ind.begin() , null_eigs_min_ind.end());
+                number_of_minimized++;
                 break;
             }
             else if(low_k < null_k){
@@ -163,6 +204,9 @@ void Cycle_minimize(vector<vector<int>>& null_eigs){
             }
         }
     }
+    cycdata.first = high_size - number_of_minimized;
+    cycdata.second = Int_sum(null_eigs[null_eigs_min_ind[0]]);
+    return cycdata;
 }
 
 // This function converts the array of integers into a corresponding binary string (used to convert the indices of Z into string of bitsets)
@@ -443,7 +487,20 @@ int main(int argc , char* argv[]){
     // Minimizing the size of the fundamental cycless
     vector<vector<int>> Ps_binary = Bit_to_intvec(Ps_nontrivial);
     vector<vector<int>> nullspace = Null2(Ps_binary);
-    Cycle_minimize(nullspace);
+    // Create a for loop to minimize the cycles!
+    int high_size = 1000;
+    int count = 0 , min_cyc_len = 3;
+    pair<int,int> cycdata;
+    cycdata = Cycle_minimize_0(nullspace , min_cyc_len);
+    high_size = cycdata.first;
+    min_cyc_len = cycdata.second;
+    while(high_size > 0){
+        cycdata = Cycle_minimize_0(nullspace , min_cyc_len);
+        high_size = cycdata.first;
+        min_cyc_len = cycdata.second;
+        count++;
+    }
+    cout << "the number of times minimization was run: " << count << endl;
     int no_ps = Ps_binary.size();
     int nullity = nullspace.size();
 
