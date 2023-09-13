@@ -276,7 +276,7 @@ vector<pair<complex<double>, vector<int>>> Data_extract(const string& fileName){
 // Finding bitset in a vector of bitsets:
 // The max bitset will be 64 (the maximum number of qubits), and we will cut off accordingly
 // ..... when the number of qubits of the system is less than this number.
-pair<bool , int> Bit_is_in_set(bitset<64> bitstring, vector<bitset<64>> bitsetVector) {
+pair<bool , int> Bit_is_in_set(bitset<5000> bitstring, vector<bitset<5000>> bitsetVector) {
     bool found = false;
     int found_indx = 0, ind_count = 0;
     pair<bool, int> output;
@@ -295,7 +295,7 @@ pair<bool , int> Bit_is_in_set(bitset<64> bitstring, vector<bitset<64>> bitsetVe
 
 // This function downsizes the vector of bitsets from bitset<64> to bitset<no_qubit> to avoid 
 // ..... having redundant zeros.
-vector<vector<bool>> Downsize_bitset(vector<bitset<64>> bitsetVector){
+vector<vector<bool>> Downsize_bitset(vector<bitset<5000>> bitsetVector){
     extern int no_qubit;
     vector<vector<bool>> bitset_down;
     for(const auto& bitset : bitsetVector){
@@ -326,7 +326,7 @@ vector<vector<int>> Bit_to_intvec(vector<vector<bool>> bitsetVec){
 
 // ------------- Functions to compute the Zs and Ps and coefficients ----------
 struct BitsetComparator {
-    bool operator()(const std::bitset<64>& lhs, const std::bitset<64>& rhs) const {
+    bool operator()(const std::bitset<5000>& lhs, const std::bitset<5000>& rhs) const {
         return lhs.to_ulong() < rhs.to_ulong();
     }
 }; // This struct is for bitset comparison (in order to sort the bitsets)
@@ -334,7 +334,7 @@ struct BitsetComparator {
 typedef vector<complex<double>> Coeffs;
 typedef vector<vector<int>> ZVecs;
 struct PZdata {
-    vector<bitset<64>> Ps;
+    vector<bitset<5000>> Ps;
     Coeffs coeffs;
     ZVecs Zs;
     ZVecs Z_track;
@@ -344,7 +344,7 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
     PZdata PZ_data;
     int l = data.size(),z_count = 0;
     extern int no_qubit;
-    vector<bitset<64>> Ps;
+    vector<bitset<5000>> Ps;
     Coeffs coeffs;
     ZVecs Zs;
     ZVecs Z_track; //This vector maps the Zs to Ps it is a many to one mapping!
@@ -353,7 +353,7 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
         complex<double> coeff_i = data[i].first;
         vector<int> zs_i; // For every line zs extracts the qubits on which a pauli Z acts! 
         vector<int> data_i = data[i].second; // Extracts the array of qubits and paulis for every line of input!
-        bitset<64> bit_num; // This variable keeps track of the index of the permutation matrix we get for each line of data!
+        bitset<5000> bit_num; // This variable keeps track of the index of the permutation matrix we get for each line of data!
 
         for (size_t j = 0; j < data_i.size() / 2; j++) {
             // Format of the input file: The 1st, 3rd, 5th, ... indicate the qubits
@@ -408,7 +408,7 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
     }
 
     // Throw away the zero coefficients:
-    vector<bitset<64>> Ps_kept;
+    vector<bitset<5000>> Ps_kept;
     ZVecs Z_track_kept;
 
     for(int k = 0; k < Z_track.size(); k++){
@@ -437,7 +437,7 @@ PZdata PZcomp(const vector<pair<complex<double>,vector<int>>>& data) {
     });
 
 
-    vector<bitset<64>> Ps_sorted;
+    vector<bitset<5000>> Ps_sorted;
     ZVecs Z_track_sorted;
     for(int i = 0; i < Ps_kept.size(); i++){
         Ps_sorted.push_back(Ps_kept[indices[i]]);
@@ -463,7 +463,7 @@ int main(int argc , char* argv[]){
 
     // Unpacking the data from the input file "fileName"
     PZdata PZ_data = PZcomp(data);
-    vector<bitset<64>> Ps_bit = PZ_data.Ps;
+    vector<bitset<5000>> Ps_bit = PZ_data.Ps;
     vector<vector<bool>> Ps = Downsize_bitset(Ps_bit);
     vector<complex<double>> coefficients = PZ_data.coeffs;
     vector<vector<int>> Z_track = PZ_data.Z_track;

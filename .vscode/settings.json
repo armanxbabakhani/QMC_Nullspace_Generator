@@ -6,6 +6,8 @@
         "iterator": "cpp",
         "bitset": "cpp",
         "ostream": "cpp",
-        "complex": "cpp"
+        "complex": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp"
     }
 }
