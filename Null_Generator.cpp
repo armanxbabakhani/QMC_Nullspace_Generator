@@ -550,7 +550,11 @@ int main(int argc , char* argv[]){
 
         // ---------------------------------------------------------------------- //
         // -------------------------- Diagonal terms ---------------------------- //
-        output << "const int D0_size = " << Z_track[0].size() << ";" << endl;
+        if(D0_exists)
+            output << "const int D0_size = " << Z_track[0].size() << ";" << endl;  
+        else
+            output << "const int D0_size = 0;" << endl;
+            
         output << "double D0_coeff[D0_size] = {";
         for(int i=0;i<Z_track[0].size();i++){
             complex<double> c_ij = coefficients[Z_track[0][i]];

@@ -568,13 +568,8 @@ void main1(int argc , char* argv[]){
 
         // ---------------------------------------------------------------------- //
         // -------------------------- Diagonal terms ---------------------------- //
-        if(D0_exists){
-            output << "const int D0_size = " << Z_track[0].size() << ";" << endl;
-        }
-        else{
-            output << "const int D0_size = 0;" << endl;
-        }
-        
+        output << "const int D0_size = " << Z_track[0].size() << ";" << endl;
+
         actually_complex = 0;
         for(int i=0;i<Z_track[0].size();i++) if(coefficients[Z_track[0][i]].imag()!=0) actually_complex = 1;
 
